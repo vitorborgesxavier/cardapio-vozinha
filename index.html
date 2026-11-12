@@ -119,6 +119,17 @@ section.cat h2 small{font:500 13px/1 var(--body);color:var(--ink-3);letter-spaci
 .soldout h3,.soldout .price{color:var(--ink-3)}
 .badge-out{font-size:12.5px;font-weight:700;color:var(--accent-2);background:var(--accent-soft);padding:5px 10px;border-radius:99px}
 
+/* opções (sabores) */
+.opts{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;border:0}
+.opts legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.opts input{position:absolute;opacity:0;pointer-events:none}
+.opts label{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:6px 12px;font-size:13.5px;font-weight:600;color:var(--ink-2);cursor:pointer;
+  transition:background .2s var(--ease),color .2s,border-color .2s}
+.opts label:hover{border-color:var(--ink-3);color:var(--ink)}
+.opts input:checked+label{background:var(--accent);border-color:var(--accent);color:#fff}
+.opts input:focus-visible+label{outline:2.5px solid var(--accent);outline-offset:2px}
+.incart{white-space:nowrap;font-size:13px;font-weight:600;color:var(--accent);background:none;border:0;padding:0;text-decoration:underline;text-underline-offset:3px}
+.optrow{display:flex;align-items:center;gap:12px}
 /* botões de quantidade */
 .add{border:0;background:var(--accent);color:#fff;border-radius:99px;height:38px;padding:0 16px 0 12px;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px;
   box-shadow:0 4px 10px -5px rgba(40,20,14,.35);transition:transform .2s var(--ease),background .2s}
@@ -285,13 +296,14 @@ footer{text-align:center;color:var(--ink-3);font-size:13px;padding:30px 0 0}
 
   /* ---------- dados de demonstração (usados só com ?demo no link) ---------- */
   const DEMO_LOJA = {nome:"Vozinha Confeitaria",slogan:"Doces feitos como em casa de vó",whatsapp:"5538999990000",instagram:"vozinha_confeitaria",horario:"Ter a sáb, 9h às 18h",endereco:"Paracatu – MG",logo:"",aviso:"Encomendas de fim de ano abertas!"};
-  const DEMO_CSV = `categoria,produto,descricao,preco,foto,disponivel,destaque
-Bolos caseiros,Bolo de cenoura com chocolate,"Massa fofinha de cenoura com cobertura de chocolate que escorre. Forma redonda, serve 12 pessoas.",R$ 45,00,,sim,sim
-Bolos caseiros,Bolo de fubá com goiabada,Fubá cremoso com pedacinhos de goiabada derretendo por dentro.,R$ 40,00,,sim,
-Bolos caseiros,Bolo formigueiro,Massa amanteigada com granulado de chocolate e calda.,R$ 42,00,,não,
-Fatias,Fatia de torta de limão,"Base crocante, creme de limão e merengue maçaricado.",R$ 12,00,,sim,sim
-Fatias,Pudim de leite (fatia),"Pudim de leite condensado lisinho, com calda de caramelo.",R$ 10,00,,sim,
-Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encomenda com 2 dias de antecedência.,R$ 120,00,,sim,`;
+  const DEMO_CSV = `categoria,produto,descricao,preco,foto,disponivel,destaque,opcoes
+Bolos caseiros,Bolo de cenoura com chocolate,"Massa fofinha de cenoura com cobertura de chocolate que escorre. Forma redonda, serve 12 pessoas.","R$ 45,00",,sim,sim
+Bolos caseiros,Bolo de fubá com goiabada,Fubá cremoso com pedacinhos de goiabada derretendo por dentro.,"R$ 40,00",,sim,
+Bolos caseiros,Bolo formigueiro,Massa amanteigada com granulado de chocolate e calda.,"R$ 42,00",,não,
+Fatias,Fatia de torta de limão,"Base crocante, creme de limão e merengue maçaricado.","R$ 12,00",,sim,sim
+Fatias,Pudim de leite (fatia),"Pudim de leite condensado lisinho, com calda de caramelo.","R$ 10,00",,sim,
+Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encomenda com 2 dias de antecedência.,"R$ 120,00",,sim,
+Bolo de pote,Bolo de pote,,"R$ 18,00",,sim,,"Ninho, Chocolate, Morango com ninho"`;
 
   /* ---------- utilidades ---------- */
   const $ = s => document.querySelector(s);
@@ -352,7 +364,7 @@ Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encome
 
   /* ---------- estado ---------- */
   let LOJA={}, PRODUTOS=[];
-  let cart={};
+  let cart={}; const sel={};
   try{ cart=JSON.parse(localStorage.getItem("cardapio-pedido")||"{}")||{}; }catch(e){ cart={}; }
   const saveCart=()=>{ try{ localStorage.setItem("cardapio-pedido",JSON.stringify(cart)); }catch(e){} };
 
@@ -375,10 +387,12 @@ Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encome
         preco:parsePrice(r[col("preco")]),
         foto:imgURL(r[col("foto")]),
         disponivel:!no(r[col("disponivel")]),
-        destaque:yes(r[col("destaque")])
+        destaque:yes(r[col("destaque")]),
+        opcoes:col("opcoes")>-1?String(r[col("opcoes")]||"").split(/[;,\n]/).map(x=>x.trim()).filter(Boolean):[]
       })).filter(p=>p.nome);
       // limpa do carrinho itens que saíram do cardápio
-      Object.keys(cart).forEach(k=>{ const p=PRODUTOS.find(x=>x.id===k); if(!p||!p.disponivel||p.preco==null) delete cart[k]; });
+      Object.keys(cart).forEach(k=>{ const [pid,opt]=k.split("::"); const p=PRODUTOS.find(x=>x.id===pid);
+        if(!p||!p.disponivel||p.preco==null||(opt&&!p.opcoes.includes(opt))||(!opt&&p.opcoes.length)) delete cart[k]; });
       render();
     }catch(e){
       console.error(e);
@@ -395,9 +409,19 @@ Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encome
   function control(p){
     if(!p.disponivel) return `<span class="badge-out">Esgotado hoje</span>`;
     if(!canOrder()||p.preco==null) return "";
+    if(p.opcoes.length){
+      const cur=sel[p.id]||p.opcoes[0]; sel[p.id]=cur;
+      const tot=Object.entries(cart).filter(([k])=>k.startsWith(p.id+"::")).reduce((a,[,v])=>a+v,0);
+      return `<span class="optrow"><button type="button" class="add" data-addopt="${p.id}" aria-label="Adicionar ${esc(p.nome)} sabor ${esc(cur)}">${icon("plus")}Adicionar</button>${tot?`<button type="button" class="incart" data-open-cart>${tot} no pedido</button>`:""}</span>`;
+    }
     const q=cart[p.id]||0;
     if(!q) return `<button type="button" class="add" data-add="${p.id}" aria-label="Adicionar ${esc(p.nome)}">${icon("plus")}Adicionar</button>`;
     return `<span class="stepper" role="group" aria-label="Quantidade de ${esc(p.nome)}"><button type="button" data-dec="${p.id}" aria-label="Diminuir">${icon("minus")}</button><output class="tnum">${q}</output><button type="button" data-add="${p.id}" aria-label="Aumentar">${icon("plus")}</button></span>`;
+  }
+
+  function optsHTML(p){
+    const cur=sel[p.id]||p.opcoes[0];
+    return `<fieldset class="opts"><legend>Escolha o sabor de ${esc(p.nome)}</legend>${p.opcoes.map((o,i)=>`<input type="radio" name="opt-${p.id}" id="o-${p.id}-${i}" value="${esc(o)}" data-opt="${p.id}"${o===cur?" checked":""}><label for="o-${p.id}-${i}">${esc(o)}</label>`).join("")}</fieldset>`;
   }
 
   function render(){
@@ -432,7 +456,7 @@ Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encome
       $("#menu").innerHTML=cats.map(c=>{
         const list=PRODUTOS.filter(p=>p.categoria===c);
         return `<section class="cat" id="c-${slug(c)}" aria-labelledby="h-${slug(c)}"><h2 id="h-${slug(c)}">${esc(c)} <small>${list.length} ${list.length>1?"itens":"item"}</small></h2><ul class="items">${
-          list.map(p=>`<li class="item${p.disponivel?"":" soldout"}" id="p-${p.id}"><div><h3>${esc(p.nome)}</h3>${p.desc?`<p>${esc(p.desc)}</p>`:""}<div class="row"><span class="price tnum">${p.preco!=null?brl(p.preco):"Sob consulta"}</span><span data-ctl="${p.id}">${control(p)}</span></div></div><div class="media">${photo(p)}</div></li>`).join("")
+          list.map(p=>`<li class="item${p.disponivel?"":" soldout"}" id="p-${p.id}"><div><h3>${esc(p.nome)}</h3>${p.desc?`<p>${esc(p.desc)}</p>`:""}${p.opcoes.length&&p.disponivel?optsHTML(p):""}<div class="row"><span class="price tnum">${p.preco!=null?brl(p.preco):"Sob consulta"}</span><span data-ctl="${p.id}">${control(p)}</span></div></div><div class="media">${photo(p)}</div></li>`).join("")
         }</ul></section>`;
       }).join("");
     }
@@ -455,12 +479,14 @@ Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encome
   }
 
   /* ---------- pedido ---------- */
-  const lines=()=>Object.entries(cart).map(([id,q])=>({p:PRODUTOS.find(x=>x.id===id),q})).filter(l=>l.p&&l.q>0);
+  const lines=()=>Object.entries(cart).map(([k,q])=>{ const [id,opt]=k.split("::"); return {k,p:PRODUTOS.find(x=>x.id===id),opt,q}; }).filter(l=>l.p&&l.q>0);
+  const label=l=>l.opt?`${l.p.nome} – ${l.opt}`:l.p.nome;
   const total=()=>lines().reduce((s,l)=>s+l.p.preco*l.q,0);
 
-  function setQty(id,d){
-    cart[id]=Math.max(0,(cart[id]||0)+d); if(!cart[id]) delete cart[id];
+  function setQty(key,d){
+    cart[key]=Math.max(0,(cart[key]||0)+d); if(!cart[key]) delete cart[key];
     saveCart();
+    const id=key.split("::")[0];
     const slot=document.querySelector(`[data-ctl="${id}"]`); const p=PRODUTOS.find(x=>x.id===id);
     if(slot&&p) slot.innerHTML=control(p);
     updateCart(d>0); renderLines();
@@ -474,7 +500,7 @@ Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encome
     if(!n&&$("#sheet").classList.contains("open")) closeSheet();
   }
   function renderLines(){
-    $("#lines").innerHTML=lines().map(({p,q})=>`<li><div><div class="name">${esc(p.nome)}</div><div class="sub tnum">${brl(p.preco)} cada · ${brl(p.preco*q)}</div></div><span class="stepper" role="group" aria-label="Quantidade de ${esc(p.nome)}"><button type="button" data-dec="${p.id}" aria-label="Diminuir">${icon("minus")}</button><output class="tnum">${q}</output><button type="button" data-add="${p.id}" aria-label="Aumentar">${icon("plus")}</button></span></li>`).join("");
+    $("#lines").innerHTML=lines().map(l=>`<li><div><div class="name">${esc(label(l))}</div><div class="sub tnum">${brl(l.p.preco)} cada · ${brl(l.p.preco*l.q)}</div></div><span class="stepper" role="group" aria-label="Quantidade de ${esc(label(l))}"><button type="button" data-dec="${esc(l.k)}" aria-label="Diminuir">${icon("minus")}</button><output class="tnum">${l.q}</output><button type="button" data-add="${esc(l.k)}" aria-label="Aumentar">${icon("plus")}</button></span></li>`).join("");
     $("#sumTotal").textContent=brl(total());
   }
   let lastFocus;
@@ -482,14 +508,21 @@ Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encome
   function closeSheet(){ const s=$("#sheet"); s.classList.remove("open"); s.setAttribute("aria-hidden","true"); document.body.style.overflow=""; lastFocus&&lastFocus.focus&&lastFocus.focus(); }
 
   document.addEventListener("click",e=>{
-    const t=e.target.closest("[data-add],[data-dec],[data-cat],[data-goto],[data-close],#openCart");
+    const t=e.target.closest("[data-add],[data-addopt],[data-dec],[data-cat],[data-goto],[data-close],[data-open-cart],#openCart");
     if(!t) return;
-    if(t.dataset.add) setQty(t.dataset.add,1);
+    if(t.dataset.addopt){ const p=PRODUTOS.find(x=>x.id===t.dataset.addopt); setQty(p.id+"::"+(sel[p.id]||p.opcoes[0]),1); }
+    else if(t.hasAttribute("data-open-cart")) openSheet();
+    else if(t.dataset.add) setQty(t.dataset.add,1);
     else if(t.dataset.dec) setQty(t.dataset.dec,-1);
     else if(t.dataset.cat) document.getElementById("c-"+t.dataset.cat).scrollIntoView({behavior:"smooth"});
     else if(t.dataset.goto){ const el=document.getElementById("p-"+t.dataset.goto); el&&el.scrollIntoView({behavior:"smooth",block:"center"}); }
     else if(t.hasAttribute("data-close")) closeSheet();
     else if(t.id==="openCart") openSheet();
+  });
+  document.addEventListener("change",e=>{
+    const r=e.target.closest("[data-opt]"); if(!r) return;
+    sel[r.dataset.opt]=r.value;
+    const p=PRODUTOS.find(x=>x.id===r.dataset.opt); const slot=document.querySelector(`[data-ctl="${p.id}"]`); if(slot) slot.innerHTML=control(p);
   });
   document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&$("#sheet").classList.contains("open")) closeSheet(); });
   document.querySelectorAll('input[name="entrega"]').forEach(r=>r.addEventListener("change",()=>{ $("#addrField").hidden=!$("#rEnt").checked; }));
@@ -503,7 +536,7 @@ Docinhos,Brigadeiro tradicional (cento),Chocolate de verdade e granulado. Encome
     const L=lines(); if(!L.length) return;
     const msg=[
       `Olá, ${LOJA.nome||""}! Quero fazer um pedido:`, "",
-      ...L.map(({p,q})=>`• ${q}x ${p.nome} — ${brl(p.preco*q)}`), "",
+      ...L.map(l=>`• ${l.q}x ${label(l)} — ${brl(l.p.preco*l.q)}`), "",
       `*Total: ${brl(total())}*`, "",
       `Nome: ${nome}`,
       ent?`Entrega em: ${end}`:"Vou retirar na loja",
